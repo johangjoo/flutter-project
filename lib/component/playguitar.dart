@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter/services.dart';
+//landscape모드 사용
 
 class GuitarApp extends StatelessWidget {
   const GuitarApp({super.key});
@@ -22,6 +24,27 @@ class _GuitarScreenState extends State<GuitarScreen> {
   Offset _imagePosition = const Offset(0, 0);
   final AudioPlayer _player = AudioPlayer();
 
+  void initState() {
+    super.initState();
+    // guitart 버튼을 누르면 guitar앱으로 가지면서 가로모드가 켜지게
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void dispose() {
+    // 나가게 되면 세로로 돌아가게 설정
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    _player.dispose();
+    super.dispose();
+  }
+
   /// 세미톤(n) → pitch factor: 2^(n/12)
   double _semitoneToPitch(int semitones) => pow(2, semitones / 12).toDouble();
 
@@ -39,33 +62,42 @@ class _GuitarScreenState extends State<GuitarScreen> {
     await _player.play();
   }
 
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
-  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Guitar: 6→1 String Pitch')),
+      appBar: AppBar(title: const Text('Play Guitar')),
       body: SafeArea(
-        child: Stack(
+        child: Row(
           children: [
-            Positioned(
-              left: _imagePosition.dx,
-              top: _imagePosition.dy,
+            Expanded(
+              flex: 2,
               child: GestureDetector(
-                onPanUpdate: (details) {
-                  setState(() {
-                    _imagePosition += details.delta;
-                  });
-                },
-                child: Image.asset(
-                  'assets/imgs/assetimg/guitarImg.png',
-                  width: 120,
-                  height: 120,
+                onPanUpdate: (d) => setState(() {
+                  _imagePosition += d.delta;
+                }),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: _imagePosition.dx,
+                      top: _imagePosition.dy,
+                      child: Image.asset('assets/imgs/guitarImg.png'),
+                    ),
+                  ],
                 ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(6, (i) {
+                  return ElevatedButton(
+                    onPressed: () => _playString(i + 1),
+                    child: Text('String ${i + 1}'),
+                  );
+                }),
               ),
             ),
           ],

@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:guitarplayer/component/playguitar.dart';
+import 'package:flutter/services.dart';
+//세로고정을 위한
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+class _HomeScreenState extends State<HomeScreen> {
+
+  void initState() {
+    super.initState();
+    // 세로모드 고정
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,7 +39,14 @@ class HomeScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const GuitarApp()),
-                  );
+                  ).then((_){
+                    SystemChrome.setPreferredOrientations([
+                      DeviceOrientation.portraitUp,
+                      DeviceOrientation.portraitDown,
+                    ]);
+                  });//그냥 Navigator push로 쌓아올리기만하면 뒤돌아갔을때 가로모드에서 돌아오기전에
+                  //homescreen이 나와서 가로모드에서의 homescreen이 나와 가로모드 디자인을 안한나는
+                  //overflow현상이 일어나게된다
                 },
                 style: OutlinedButton.styleFrom(
                   backgroundColor: Colors.white,
