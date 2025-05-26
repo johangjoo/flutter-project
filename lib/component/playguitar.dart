@@ -21,7 +21,9 @@ class GuitarScreen extends StatefulWidget {
 }
 
 class _GuitarScreenState extends State<GuitarScreen> {
-  Offset _imagePosition = const Offset(0, 0);
+  //Offset하면x,y둘다 되서 이미지의x만 받아서 최대최소 정해놓고 이동시키게함
+  double imgX = 0;
+  bool _initialized = false;
   final AudioPlayer _player = AudioPlayer();
 
   void initState() {
@@ -62,72 +64,72 @@ class _GuitarScreenState extends State<GuitarScreen> {
     await _player.play();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = 700;
+    final double imgWidth = 1279.0;
+    const double buttonWidth = 200.0;
+    //위는 화면 실행 기기 최대길이와 이미지 길이
+    //아래는 화면에 보이게될 부분
+    final double minX = 0;
+    final double maxX = (imgWidth - screenWidth).clamp(0, double.infinity);
+    //이미지 시작시 오른쪽 부터 보이게 해야하기때문에
+    if (!_initialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          imgX = maxX;
+          _initialized = true;
+        });
+      });
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Play Guitar')),
       body: SafeArea(
         child: Row(
           children: [
-            Expanded(
-              flex: 2,
-              child: GestureDetector(
-                onPanUpdate: (d) => setState(() {
-                  _imagePosition += d.delta;
-                }),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: _imagePosition.dx,
-                      top: _imagePosition.dy,
-                      child: Image.asset('assets/imgs/guitarImg.png'),
-                    ),
-                  ],
-                ),
+            SizedBox(
+              width: buttonWidth,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  ElevatedButton(onPressed: () {}, child: Text('핑거')),
+                  SizedBox(height: 20),
+                  ElevatedButton(onPressed: () {}, child: Text('스트로크')),
+                ],
               ),
             ),
-            Expanded(
-              flex: 1,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(6, (i) {
-                  return ElevatedButton(
-                    onPressed: () => _playString(i + 1),
-                    child: Text('String ${i + 1}'),
+            SizedBox(
+              width: screenWidth,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  //builder: 하면 위잿않에 부모위잿을 바탕으로하는 위젯? 같은거를 구현가능? 잘 모름
+                  return GestureDetector(
+                    onPanUpdate:
+                        (d) => setState(() {
+                          //바뀐 이미지 x값 받아오기
+                          final nextX = imgX - d.delta.dx;
+                          imgX = nextX.clamp(minX, maxX);
+                        }),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: -imgX,
+                          top: 0, //위아래 고정 좌우 움직이기
+                          child: Image.asset(
+                            'assets/imgs/guitarImg.png',
+                            width: 1279,
+                            fit: BoxFit.none,
+                          ),
+                        ),
+                      ],
+                    ),
                   );
-                }),
+                },
               ),
             ),
           ],
         ),
       ),
     );
-    /*
-        child: RotatedBox(
-          quarterTurns: 1,
-          child: Column(
-            children: List.generate(6, (i) {
-              final stringNum = i + 1;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => _playString(stringNum),
-                  child: Container(
-                    color: Colors.brown[100 * (stringNum % 9)],
-                    alignment: Alignment.center,
-                    child: Text(
-                      'String $stringNum',
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ),
-                ),
-              );
-
-            }
-      ),
-          ),
-        ),
-        */
   }
 }
