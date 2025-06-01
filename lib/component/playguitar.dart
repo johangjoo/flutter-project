@@ -1,9 +1,10 @@
-import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:flutter/services.dart';
-import 'package:guitarplayer/component/guitarButton.dart';
-import 'package:guitarplayer/component/guitarpan.dart';
+import 'package:guitarplayer/component/guitarSound.dart';
+import 'package:guitarplayer/component/guitarRecord.dart';
+import 'playList.dart';
+
 //landscape모드 사용
 
 class GuitarApp extends StatelessWidget {
@@ -25,68 +26,92 @@ class GuitarScreen extends StatefulWidget {
 class _GuitarScreenState extends State<GuitarScreen> {
   //Offset하면x,y둘다 되서 이미지의x만 받아서 최대최소 정해놓고 이동시키게함
   double imgX = 0;
-  bool _initialized = false;
+  late final RecordingController _recorder;
+  late final GuitarSound _soundEngine;
   final ScrollController _scrollCtrl = ScrollController();
-  final AudioPlayer _player = AudioPlayer();
-  late final List<AudioPlayer> _stringPlayers;
+  Timer? _recordTimer;
+  double _recordElapsedSec = 0.0;
+  final double _recordMaxSec = 60.0;
+  bool _isRecording = false;
+
   void initState() {
     super.initState();
+    _soundEngine = GuitarSound();
+    _soundEngine.load();
+    _recorder = RecordingController();
     // guitart 버튼을 누르면 guitar앱으로 가지면서 가로모드가 켜지게
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
-    ]);
-    _stringPlayers = List.generate(6, (_) => AudioPlayer());
 
-    Future.wait(_stringPlayers.asMap().entries.map((e) {
-      final idx = e.key;        // 0~5
-      final player = e.value;
-      return player.setAsset(
-          'assets/sounds/string_${idx+1}_fret_0.mp3'
-      );
-    }));
+    ]);
+    //기타의 이미지가 오른쪽 끝 부터 시작해서 시작하면 initstate에서 스크롤을 오른쪽 끝으로 바꿔준다
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+    });
   }
+
 
   void dispose() {
     // 나가게 되면 세로로 돌아가게 설정
+    _soundEngine.dispose();
     _scrollCtrl.dispose();
-    _player.dispose();
     super.dispose();
   }
 
-  /// 세미톤(n) → pitch factor: 2^(n/12)
-  double _semitoneToPitch(int semitones) => pow(2, semitones / 12).toDouble();
+  //프렛버튼 누를때 실행 되는 함수
+  void _onNotePressed(int stringNum, int fretNum) {
+    _soundEngine.playNote(stringNum, fretNum);
+    _recorder.recordFret(stringNum, fretNum);
+  }
 
-  /// stringNum: 1~6, fretIndex: 0~(총프렛수-1)
-  Future<void> _playNote(int stringNum, int fretIndex) async {
-    // 1) 해당 줄용 플레이어 가져오기 (stringNum=1→_stringPlayers[0])
-    final player = _stringPlayers[stringNum - 1];
+  //레코딩 시작할 때
+  void _startRecording() {
+    _recorder.startRecording();
+    setState(() {
+      _isRecording = true;
+      _recordElapsedSec = 0.0;
+    });
+    _recordTimer?.cancel();
+    _recordTimer = Timer.periodic(Duration(milliseconds: 100), (timer) {
+      setState(() {
+        _recordElapsedSec += 0.1;
+        if (_recordElapsedSec >= _recordMaxSec) {
+          _stopRecording();
+        }
+      });
+    });
+  }
 
-    // 2) 재생 위치를 처음으로 돌립니다.
-    await player.seek(Duration.zero);
-
-    // 3) 피치 계산: 기본 semitone + 프렛 인덱스
-    final baseSemitones = 6 - stringNum;
-    final totalSemitones = baseSemitones + fretIndex;
-    final pitch = _semitoneToPitch(totalSemitones);
-
-    // 4) 피치만 설정하고 재생
-    await player.setPitch(pitch);
-    await player.play();
+  //레코딩 멈출때
+  Future<void> _stopRecording() async {
+    _recorder.stopRecording();
+    await saveRecording(GuitarRecording(
+      id: DateTime.now().toIso8601String(),
+      events: List.of(_recorder.events),
+    ));
+    setState(() {
+      _isRecording = false;
+      _recordTimer?.cancel();
+      _recordElapsedSec = 0.0;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     const int frets = 16;
     const double imgWidth = 1279.0;
-    final double phoneW = MediaQuery.of(context).size.width;
+    final double phoneW = MediaQuery
+        .of(context)
+        .size
+        .width;
 
     // 1/9: left panel, 8/9: fretboard viewport
     final double leftW = phoneW / 9;
     final double boardW = phoneW - leftW;
 
     const double btnH = 44.0;
-    const double topPad = 18.0;
+    const double topPad = 10.0;
     // 뷰포트 높이
     final imgDisplayH = 300.0;
 
@@ -100,81 +125,122 @@ class _GuitarScreenState extends State<GuitarScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Row(
+        child: Column(
+          //전체와 녹음바
           children: [
-            // ─── 왼쪽 컨트롤 ─────────────────────────────
-            SizedBox(
-              width: leftW,
-              child: Column(
-                children: const [
-                  SizedBox(height: 20),
-                  ElevatedButton(onPressed: null, child: Text('핑거')),
-                  SizedBox(height: 20),
-                  ElevatedButton(onPressed: null, child: Text('스트로크')),
+
+            Expanded(
+              child: Row(
+                children: [
+                  // ─── 왼쪽 버튼 패널 ───
+                  SizedBox(
+                    width: leftW,
+                    child: Column(
+                      children: [
+                        SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _isRecording ? null : _startRecording,
+                          child: Text('녹음'),
+                        ),
+                        SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _isRecording ? _stopRecording : null,
+                          child: Text('정지'),
+                        ),
+                        SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => PlayListScreen()),
+                            );
+                          },
+                          child: Text('재생 목록'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // ─── 오른쪽 프렛보드 ───
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scrollCtrl,
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        width: imgWidth,
+                        height: imgDisplayH,
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              child: Image.asset(
+                                'assets/imgs/guitarImg.png',
+                                width: imgWidth,
+                                height: imgDisplayH,
+                                fit: BoxFit.none,
+                              ),
+                            ),
+                            // 버튼 오버레이
+                            Positioned(
+                              left: 0,
+                              top: topPad,
+                              child: Column(
+                                children: List.generate(6, (row) {
+                                  final int stringNum = 6 - row;
+                                  return Row(
+                                    children: List.generate(frets, (col) {
+                                      final int fretNum = frets - 1 - col;
+                                      return SizedBox(
+                                        width: fretwidths[col],
+                                        height: btnH,
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            print(
+                                                'String: $stringNum, Fret: $fretNum');
+                                            _onNotePressed(stringNum, fretNum);
+                                          },
+                                          child: SizedBox(
+                                            width: fretwidths[col],
+                                            height: btnH,
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  );
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-
-            // ─── 오른쪽: 스크롤 가능한 프렛보드 뷰포트 ────
-            SizedBox(
-              width: boardW,
-              height: imgDisplayH,
-              child: SingleChildScrollView(
-                controller: _scrollCtrl,
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                child: SizedBox(
-                  width: imgWidth,
-                  height: imgDisplayH,
-                  child: Stack(
-                    children: [
-                      // 1) 전체 기타 이미지 (원본 폭 1279px)
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        child: Image.asset(
-                          'assets/imgs/guitarImg.png',
-                          width: imgWidth,
-                          height: imgDisplayH,
-                          fit: BoxFit.none,
-                        ),
-                      ),
-
-                      // 2) 버튼 오버레이 (topPad 만큼 아래에서 시작)
-                      Positioned(
-                        left: 0,
-                        top: topPad,
-                        child: Column(
-                          children: List.generate(6, (row) {
-                            final int stringNum = 6 - row; // 위쪽이 6번줄
-                            return Row(
-                              children: List.generate(frets, (col) {
-                                final int fretNum = frets - 1 - col; // 왼쪽이 16프렛
-                                return SizedBox(
-                                  width: fretwidths[col],
-                                  height: btnH,
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () {
-                                      print('String: $stringNum, Fret: $fretNum');
-                                      _playNote(stringNum, fretNum);
-                                    },
-                                    child: SizedBox(
-                                    width: fretwidths[col],
-                                    height: btnH,
-                                  ),
-                                  ),
-                                );
-                              }),
-                            );
-                          }),
-                        ),
-                      ),
-                    ],
-                  ),
+            // ─── 하단 진행바/타이머 (녹음 중에만) ───
+            if (_isRecording)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 8.0, horizontal: 24.0),
+                child: Column(
+                  children: [
+                    LinearProgressIndicator(
+                      value: _recordElapsedSec / _recordMaxSec,
+                      minHeight: 8.0,
+                      backgroundColor: Colors.grey[300],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '녹음 중: ${_recordElapsedSec.toStringAsFixed(
+                          1)} / $_recordMaxSec 초',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[400]),
+                    ),
+                  ],
                 ),
               ),
-            ),
           ],
         ),
       ),
