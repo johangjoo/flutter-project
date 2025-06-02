@@ -50,33 +50,32 @@ class GuitarRecording {
 class RecordingController {
   final List<RecordEvent> events = [];
   //녹음되는것들, 1분까지 stopwatch저장 레코딩중인지 아닌지 시간을 재는 객체
-  Stopwatch? _stopwatch;
-  bool _isRecording = false;
+  Stopwatch? stopwatch;
+  bool isRecording = false;
 
   void startRecording() {
     //레코딩 시작되면 새로운 스탑워치객체 생성하고 바로 시작하는 문법
 
-    _stopwatch = Stopwatch()..start();
+    stopwatch = Stopwatch()..start();
     //직전까지 녹음된 기록이 있다면 clear, 레코딩중true
     events.clear();
-    _isRecording = true;
+    isRecording = true;
   }
 
   void stopRecording() {
     //스탑워치 정지하고 레코딩false전환
-    _stopwatch?.stop();
-    _isRecording = false;
+    stopwatch?.stop();
+    isRecording = false;
   }
 
   void recordFret(int string, int fret) {
     //레코딩이 아니거나 스탑워치가 비어있다면 return
-    if (!_isRecording || _stopwatch == null) return;
+    if (!isRecording || stopwatch == null) return;
     //레코딩 중이라면
-    double timeSec = _stopwatch!.elapsedMilliseconds / 1000.0;
+    double timeSec = stopwatch!.elapsedMilliseconds / 1000.0;
     //시간정보를 stopwatch가 null이 아닐때 켜진다음에 시간을 받아와서(1000으로 나눠서 밀리초계산)
     //그러고 string, fret time정보를 events리스트에 recordevent객체 추가
     events.add(RecordEvent(stringNum: string, fretNum: fret, time: timeSec));
-    // print('${string}, ${fret}, ${timeSec}');
   }
 
   //녹음 된것 리스트
