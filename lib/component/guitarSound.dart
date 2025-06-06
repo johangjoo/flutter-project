@@ -38,6 +38,13 @@ class GuitarSound {
     await player.play();
   }
 
+  //일시정지, 다른 녹음본 텝, 뒤로가기등 했을때 모든 플레이어 정지시키는거 추가
+  void stopAll() {
+    for (final player in _players) {
+      player.stop();
+    }
+  }
+
   void dispose() {
     for (var p in _players) {
       p.dispose();

@@ -29,9 +29,13 @@ class PlayListScreenState extends State<PlayListScreen> {
 
   //가져온 녹음본의 총 재생길이를 가져오는 비어있으면 0.0초(취소,확장안됨) 있다면 이벤트의의 마지막리스트
   //는 총길이의 초를 가지고 있다 => 이걸 가져와서 총길이로 한다
-  double get totalDuration => expandedRec?.events.isEmpty ?? true
-      ? 0.0
-      : expandedRec!.events.last.time;
+  double get totalDuration {
+    if (expandedRec == null || expandedRec!.events.isEmpty) {
+      return 0.0;
+    }
+    // 마지막 이벤트의 시간을 총 길이로 반환 (stopRecording에서 추가한 종료 이벤트 덕분에 정확해짐)
+    return expandedRec!.events.last.time;
+  }
 
   @override
   void initState() {
@@ -46,10 +50,11 @@ class PlayListScreenState extends State<PlayListScreen> {
   @override
   void dispose() {
     timer?.cancel();
+    soundEngine?.stopAll();
     soundEngine?.dispose();
     SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
     ]);
     super.dispose();
   }
@@ -79,6 +84,8 @@ class PlayListScreenState extends State<PlayListScreen> {
   //실행할 녹음본 클릭했을때 불러올 것들
   void expandTile(int idx) {
     if (expandedIdx == idx) return; // 이미 열려있으면 무시
+    soundEngine?.stopAll();
+
     setState(() {
       expandedIdx = idx;             //확장인덱스
       soundEngine?.dispose();        //기존 사운드엔진있으면 종로
@@ -110,7 +117,9 @@ class PlayListScreenState extends State<PlayListScreen> {
         final ev = expandedRec!.events[eventIdx];
         //재생해야할 이벤트를 가져오고
         //playNote로 이벤트에 저장된 sting, fret실행
-        soundEngine!.playNote(ev.stringNum, ev.fretNum);
+        if (ev.stringNum != -1) {
+          soundEngine!.playNote(ev.stringNum, ev.fretNum);
+        }
         eventIdx++;
         //인덱스 증가
       }
@@ -122,12 +131,14 @@ class PlayListScreenState extends State<PlayListScreen> {
 
   void pause() {
     //재생상태 변환
+    soundEngine?.stopAll();
     setState(() => isPlaying = false);
   }
 
   void stop() {
     //타이머 캔슬아니면 캔슬시키고
     timer?.cancel();
+    soundEngine?.stopAll();
     //재생시간, 인덱스, 재생상테 전부 변환
     setState(() {
       elapsed = 0.0;
@@ -151,86 +162,123 @@ class PlayListScreenState extends State<PlayListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('녹음 재생목록')),
-      body: ListView.builder(
-        //리스트뷰, 녹음본 길이만큼
-        itemCount: recordings.length,
-
-        itemBuilder: (context, idx) {
-          final rec = recordings[idx];
-          final isExpanded = expandedIdx == idx;
-          //녹음본, 확장된부분 가져오고
-          return Column(
-            children: [
-              ListTile(
-                //listtile사용해서 정렬, 규격은 대충 맞게, 녹
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                title: Text('녹음본:\n${rec.id}', style: TextStyle(fontSize: 15)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(isExpanded
-                      //실행여부에 따라 플레이버튼이랑 일시정지버튼이랑
-                          ? (isPlaying ? Icons.pause : Icons.play_arrow)
-                          : Icons.play_arrow),
-                      onPressed: () {
-                        if (!isExpanded) {
-                          expandTile(idx);
-                        }
-                        if (isPlaying) {
-                          pause();
-                        } else {
-                          play();
-                        }
-                      },
-                    ),
-                    //삭제버튼
-                    IconButton(
-                      icon: Icon(Icons.delete),
-                      onPressed: () => deleteRecords(idx),
-                    ),
-                  ],
-                ),
-                //원하는 녹음본 탭하면 그 인덱스에맞는 저거 불러와짐 listtitle의ontap
-                onTap: () => expandTile(idx),
-              ),
-              //갤럭시 녹음앱처럼 누르면 샥 펼쳐지고 닫혀지고 그런 과정을 애니메이션처럼
-              //부드럽게 보여주는 container
-              AnimatedContainer(
-                //애니메이션 작동시간, 변하는 높이, 등 지정해서 바꾸기
-                duration: Duration(milliseconds: 220),
-                height: isExpanded ? 110 : 0,
-                curve: Curves.easeInOut,//애니메이션속도를 커브곡선그리는 느낌으로 느리다빠르다느리다
-                padding: EdgeInsets.symmetric(horizontal: 18),//안에 여백
-                child: isExpanded//확장이되면
-                    ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Slider(
-                      //펼쳐지면 슬라이더가 펼쳐지고 초기화시킨다
-                      min: 0,
-                      max: totalDuration,
-                      value: elapsed.clamp(0, totalDuration),
-                      onChanged: seek,//슬라이더전용함수 위에만들어둠
-                    ),
-                    Row(
-                      //재생 시간 현재초
-                      children: [
-                        Text(
-                          '${elapsed.toStringAsFixed(2)} / ${totalDuration.toStringAsFixed(2)}초',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-                    : null,
-              ),
-              Divider(height: 1, thickness: 0.6),//리스트 구분선
+      // [수정] AppBar 스타일을 배경과 어울리게 변경
+      appBar: AppBar(
+        title: Text('녹음 재생목록'),
+        backgroundColor: Color(0xFF4E342E),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      // [수정] Scaffold 자체에 배경을 적용하면 가장 깔끔합니다.
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF4E342E),
+              Color(0xFF795548),
+              Color(0xFF4E342E),
             ],
-          );
-        },
+          ),
+        ),
+        child: ListView.builder(
+          //리스트뷰, 녹음본 길이만큼
+          itemCount: recordings.length,
+
+          itemBuilder: (context, idx) {
+            final rec = recordings[idx];
+            final isExpanded = expandedIdx == idx;
+            //녹음본, 확장된부분 가져오고
+            return Column(
+              children: [
+                ListTile(
+                  //listtile사용해서 정렬, 규격은 대충 맞게, 녹
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  // [수정] 텍스트 색상을 흰색으로 변경
+                  title: Text('녹음본:\n${rec.id}', style: TextStyle(fontSize: 15, color: Colors.white)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        // [수정] 아이콘 색상을 흰색으로 변경
+                        color: Colors.white,
+                        icon: Icon(isExpanded
+                        //실행여부에 따라 플레이버튼이랑 일시정지버튼이랑
+                            ? (isPlaying ? Icons.pause : Icons.play_arrow)
+                            : Icons.play_arrow),
+                        onPressed: () {
+                          if (!isExpanded) {
+                            expandTile(idx);
+                          }
+                          if (isPlaying) {
+                            pause();
+                          } else {
+                            play();
+                          }
+                        },
+                      ),
+                      //삭제버튼
+                      IconButton(
+                        // [수정] 아이콘 색상을 흰색으로 변경
+                        color: Colors.white,
+                        icon: Icon(Icons.delete),
+                        onPressed: () => deleteRecords(idx),
+                      ),
+                    ],
+                  ),
+                  //원하는 녹음본 탭하면 그 인덱스에맞는 저거 불러와짐 listtitle의ontap
+                  onTap: () => expandTile(idx),
+                ),
+                //갤럭시 녹음앱처럼 누르면 샥 펼쳐지고 닫혀지고 그런 과정을 애니메이션처럼
+                //부드럽게 보여주는 container
+                AnimatedContainer(
+                  //애니메이션 작동시간, 변하는 높이, 등 지정해서 바꾸기
+                  duration: Duration(milliseconds: 220),
+                  height: isExpanded ? 110 : 0,
+                  curve: Curves.easeInOut,//애니메이션속도를 커브곡선그리는 느낌으로 느리다빠르다느리다
+                  padding: EdgeInsets.symmetric(horizontal: 18),//안에 여백
+                  child: isExpanded
+                      ? SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(), // 사용자가 직접 스크롤하는 것을 막음
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: Colors.white,
+                        inactiveTrackColor: Colors.white.withOpacity(0.3),
+                        thumbColor: Colors.white,
+                        overlayColor: Colors.white.withOpacity(0.2),
+                        trackHeight: 2.0,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Slider(
+                            min: 0,
+                            max: totalDuration,
+                            value: elapsed.clamp(0, totalDuration),
+                            onChanged: seek,
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                //시간초 띄우기
+                                '${elapsed.toStringAsFixed(2)} / ${totalDuration.toStringAsFixed(2)}초',
+                                style: TextStyle(fontSize: 13, color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                      : null,
+                ),
+                // [수정] 구분선 색상 변경
+                Divider(height: 1, thickness: 0.6, color: Colors.white.withOpacity(0.2)),//리스트 구분선
+              ],
+            );
+          },
+        ),
       ),
     );
   }

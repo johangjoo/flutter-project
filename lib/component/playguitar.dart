@@ -56,6 +56,11 @@ class _GuitarScreenState extends State<GuitarScreen> {
     // 나가게 되면 세로로 돌아가게 설정
     _soundEngine.dispose();
     _scrollCtrl.dispose();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+
+    ]);
     super.dispose();
   }
 
@@ -63,6 +68,7 @@ class _GuitarScreenState extends State<GuitarScreen> {
   void _onNotePressed(int stringNum, int fretNum) {
     _soundEngine.playNote(stringNum, fretNum);
     _recorder.recordFret(stringNum, fretNum);
+
   }
 
   //레코딩 시작할 때
@@ -124,124 +130,193 @@ class _GuitarScreenState extends State<GuitarScreen> {
     ];
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          //전체와 녹음바
-          children: [
+      //배경좀
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF4E342E),
+              Color(0xFF795548),
+              Color(0xFF4E342E),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            //전체와 녹음바
+            children: [
 
-            Expanded(
-              child: Row(
-                children: [
-                  // ─── 왼쪽 버튼 패널 ───
-                  SizedBox(
-                    width: leftW,
-                    child: Column(
-                      children: [
-                        SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: _isRecording ? null : _startRecording,
-                          child: Text('녹음'),
-                        ),
-                        SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: _isRecording ? _stopRecording : null,
-                          child: Text('정지'),
-                        ),
-                        SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => PlayListScreen()),
-                            );
-                          },
-                          child: Text('재생 목록'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // ─── 오른쪽 프렛보드 ───
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scrollCtrl,
-                      scrollDirection: Axis.horizontal,
-                      physics: const ClampingScrollPhysics(),
-                      child: SizedBox(
-                        width: imgWidth,
-                        height: imgDisplayH,
-                        child: Stack(
+              Expanded(
+                child: Row(
+                  children: [
+                    // ─── 왼쪽 버튼 패널 ───
+                    SizedBox(
+                      width: leftW,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Image.asset(
-                                'assets/imgs/guitarImg.png',
-                                width: imgWidth,
-                                height: imgDisplayH,
-                                fit: BoxFit.none,
+                            SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: _isRecording ? null : _startRecording,
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2.0),
+                                    child: Container(
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.white.withOpacity(0.5), width: 0.8),
+                                      ),
+                                      child: const Text(
+                                        '녹음',
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            // 버튼 오버레이
-                            Positioned(
-                              left: 0,
-                              top: topPad,
-                              child: Column(
-                                children: List.generate(6, (row) {
-                                  final int stringNum = 6 - row;
-                                  return Row(
-                                    children: List.generate(frets, (col) {
-                                      final int fretNum = frets - 1 - col;
-                                      return SizedBox(
-                                        width: fretwidths[col],
-                                        height: btnH,
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () {
-                                            print(
-                                                'String: $stringNum, Fret: $fretNum');
-                                            _onNotePressed(stringNum, fretNum);
-                                          },
-                                          child: SizedBox(
-                                            width: fretwidths[col],
-                                            height: btnH,
-                                          ),
-                                        ),
-                                      );
-                                    }),
-                                  );
-                                }),
+                            SizedBox(height: 20),
+                            SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: _isRecording ? _stopRecording : null,
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2.0),
+                                    child: Container(
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.white.withOpacity(0.5), width: 0.8),
+                                      ),
+                                      child: const Text(
+                                        '정지',
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
+                            SizedBox(height: 20),
+
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            // ─── 하단 진행바/타이머 (녹음 중에만) ───
-            if (_isRecording)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 8.0, horizontal: 24.0),
-                child: Column(
-                  children: [
-                    LinearProgressIndicator(
-                      value: _recordElapsedSec / _recordMaxSec,
-                      minHeight: 8.0,
-                      backgroundColor: Colors.grey[300],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '녹음 중: ${_recordElapsedSec.toStringAsFixed(
-                          1)} / $_recordMaxSec 초',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[400]),
+                    // ─── 오른쪽 프렛보드 ───
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _scrollCtrl,
+                        scrollDirection: Axis.horizontal,
+                        physics: const ClampingScrollPhysics(),
+                        child: SizedBox(
+                          width: imgWidth,
+                          height: imgDisplayH,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                child: Image.asset(
+                                  'assets/imgs/guitarImg.png',
+                                  width: imgWidth,
+                                  height: imgDisplayH,
+                                  fit: BoxFit.none,
+                                ),
+                              ),
+                              // 버튼 오버레이
+                              Positioned(
+                                left: 0,
+                                top: topPad,
+                                child: Column(
+                                  children: List.generate(6, (row) {
+                                    final int stringNum = 6 - row;
+                                    return Row(
+                                      children: List.generate(frets, (col) {
+                                        final int fretNum = frets - 1 - col;
+                                        return SizedBox(
+                                          width: fretwidths[col],
+                                          height: btnH,
+                                          child: GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () {
+                                              print(
+                                                  'String: $stringNum, Fret: $fretNum');
+                                              _onNotePressed(stringNum, fretNum);
+                                            },
+                                            child: SizedBox(
+                                              width: fretwidths[col],
+                                              height: btnH,
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-          ],
+              // ─── 하단 진행바/타이머 (녹음 중에만) ───
+              if (_isRecording)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 8.0, horizontal: 24.0),
+                  child: Column(
+                    children: [
+                      LinearProgressIndicator(
+                        value: _recordElapsedSec / _recordMaxSec,
+                        minHeight: 8.0,
+                        backgroundColor: Colors.grey[300],
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '녹음 중: ${_recordElapsedSec.toStringAsFixed(
+                            1)} / $_recordMaxSec 초',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[400]),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

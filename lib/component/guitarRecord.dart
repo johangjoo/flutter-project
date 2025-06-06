@@ -64,6 +64,13 @@ class RecordingController {
 
   void stopRecording() {
     //스탑워치 정지하고 레코딩false전환
+    // [수정] 스탑워치가 실행 중일 때만 종료 이벤트를 추가합니다.
+    if (isRecording && stopwatch != null) {
+      // 실제 녹음이 종료된 시간을 기록하는 이벤트 추가
+      // stringNum: -1 과 같이 실제 연주될 수 없는 값으로 구분합니다.
+      double finalTime = stopwatch!.elapsedMilliseconds / 1000.0;
+      events.add(RecordEvent(stringNum: -1, fretNum: -1, time: finalTime));
+    }
     stopwatch?.stop();
     isRecording = false;
   }
