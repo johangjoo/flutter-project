@@ -25,27 +25,6 @@ class RecordEvent {
 
 }
 
-//녹음된 것들을 관리하는 부분
-class GuitarRecording {
-  final String id; //녹음본에id매기고
-  final List<RecordEvent> events;
-
-  GuitarRecording({required this.id, required this.events});
-  //tojson
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'events': events.map((e) => e.toJson()).toList(),
-  };
-
-
-
-  //fromjson부분
-  factory GuitarRecording.fromJson(Map<String, dynamic> json) => GuitarRecording(
-    id: json['id'],
-    events: (json['events'] as List).map((e) => RecordEvent.fromJson(e)).toList(),
-  );
-}
-
 //녹음 컨트롤 하는 부분
 class RecordingController {
   final List<RecordEvent> events = [];
@@ -64,7 +43,6 @@ class RecordingController {
 
   void stopRecording() {
     //스탑워치 정지하고 레코딩false전환
-    // [수정] 스탑워치가 실행 중일 때만 종료 이벤트를 추가합니다.
     if (isRecording && stopwatch != null) {
       // 실제 녹음이 종료된 시간을 기록하는 이벤트 추가
       // stringNum: -1 과 같이 실제 연주될 수 없는 값으로 구분합니다.
@@ -85,21 +63,42 @@ class RecordingController {
     events.add(RecordEvent(stringNum: string, fretNum: fret, time: timeSec));
   }
 
-  //녹음 된것 리스트
+//녹음 된것 리스트
 
 }
+//녹음된 것들을 관리하는 부분
+class GuitarRecordings {
+  final String id; //녹음본에id매기고
+  final List<RecordEvent> events;
+
+  GuitarRecordings({required this.id, required this.events});
+  //tojson
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'events': events.map((e) => e.toJson()).toList(),
+  };
+
+
+
+  //fromjson부분
+  factory GuitarRecordings.fromJson(Map<String, dynamic> json) => GuitarRecordings(
+    id: json['id'],
+    events: (json['events'] as List).map((e) => RecordEvent.fromJson(e)).toList(),
+  );
+}
+
 //녹음 저장 불러오기 삭제 정의
 // 저장 함수
-Future<void> saveRecording(GuitarRecording rec) async {
+Future<void> saveRecording(GuitarRecordings rec) async {
   final box = await Hive.openBox('guitar_recordings');
   await box.put(rec.id, jsonEncode(rec.toJson()));
 }
 
 // 불러오기 함수 (리스트)
-Future<List<GuitarRecording>> loadAllRecordings() async {
+Future<List<GuitarRecordings>> loadAllRecordings() async {
   final box = await Hive.openBox('guitar_recordings');
   return box.values
-      .map((e) => GuitarRecording.fromJson(jsonDecode(e)))
+      .map((e) => GuitarRecordings.fromJson(jsonDecode(e)))
       .toList();
 }
 

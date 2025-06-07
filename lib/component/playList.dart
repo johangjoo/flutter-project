@@ -11,7 +11,7 @@ class PlayListScreen extends StatefulWidget {
 }
 
 class PlayListScreenState extends State<PlayListScreen> {
-  List<GuitarRecording> recordings = [];
+  List<GuitarRecordings> recordings = [];
   int? expandedIdx; // 재생목록에 갤럭시처럼 확장후 재생을 구현을 위해 확장된 목록의 index
   GuitarSound? soundEngine;// 구현해놓은 기타 사운드 엔진 가져옴
   Timer? timer; //시간관련 동작을 위해 진행상황을 콜백하는 용도
@@ -24,7 +24,7 @@ class PlayListScreenState extends State<PlayListScreen> {
   bool isPlaying = false;
 
   //확장된 재생목록의 인덱스 비어있으면 null, 아니면 녹음본중 된 index번째 녹음본가져오기
-  GuitarRecording? get expandedRec =>
+  GuitarRecordings? get expandedRec =>
       expandedIdx == null ? null : recordings[expandedIdx!];
 
   //가져온 녹음본의 총 재생길이를 가져오는 비어있으면 0.0초(취소,확장안됨) 있다면 이벤트의의 마지막리스트
@@ -100,7 +100,7 @@ class PlayListScreenState extends State<PlayListScreen> {
 
   //플레이 함수
   void play() {
-    //녹은본이 없거나, 재생중x 면 return
+    //녹은본이 없거나, 재생중 이면 return
     if (expandedRec == null || isPlaying) return;
     setState(() => isPlaying = true);
     //재생중 true로 바꿔주고
@@ -110,8 +110,9 @@ class PlayListScreenState extends State<PlayListScreen> {
       //재생중이 아니면 return stop하지 않는이유는 새로만들고 삭제하는과정이 생겨서 그냥 return만해서 밑의 함수만 실행 x
       elapsed += 0.02;
       //0.02초지나가고 현재시간이하의 이벤트를 재생시키고
-      //이벤트 인덱스 지금 인덱스 < 내가가지고 있는 모든 이벤트 개수가 충족되고
-      // 지금 이벤트인덱스에 해당하는 시간이 현재 진행시간보다 작다면
+      //지금 현재의 이벤트 인덱스가 녹음본 총 이벤트 개수의 길이보다 작으며,
+      //이벤트 인덱스번에 해당하는 이벤트의 시간이, 내 경과시간보다 작을때,
+      //즉 경과시간 전의 모든 이벤트를 실행
       while (eventIdx < expandedRec!.events.length &&
           expandedRec!.events[eventIdx].time <= elapsed) {
         final ev = expandedRec!.events[eventIdx];
@@ -123,8 +124,10 @@ class PlayListScreenState extends State<PlayListScreen> {
         eventIdx++;
         //인덱스 증가
       }
-      //총길이보다 넘는다면 자동으로 멈추게
+
+      //20초마다 콜백하는데 그때마다 setState해줘야 된다.
       setState(() {});
+      //총길이보다 넘는다면 자동으로 멈추게
       if (elapsed >= totalDuration) stop();
     });
   }
